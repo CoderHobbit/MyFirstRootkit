@@ -11,7 +11,7 @@ Simple kernel mode rootkit for Windows 10 - for an Operating Systems class.
   payload.cpp: source code for virus payload (just plays a tune)
       - Should be compiled to x64audioservice.exe
   
-  lib\*: various includes (including mhook library for ez hooking)
+  lib: various includes (including mhook library for ez hooking)
 
 
 
