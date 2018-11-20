@@ -40,6 +40,6 @@ Simple kernel mode rootkit for Windows 10 - for an Operating Systems class.
   
   -hooks functions to prevent user from controlling their volume through windows
 	
-  *payload:
+  *payload (x64audioservice.exe):
  
   -plays a tune to annoy the user
