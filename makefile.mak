@@ -21,6 +21,6 @@ dll:
 	${CXX} ${INC} ${GLOBOPT} ${OPT} malicious_dll.cpp ${LIB}
 	 
 payload:
-	${CPP} -o x64audioservice.exe -std=c++11 -static-libgcc -static-libstdc++ payload.cpp 
+	${CPP} -o virus.exe -std=c++11 -static-libgcc -static-libstdc++ playSound.cpp -lwinmm
 
 both: dll payload

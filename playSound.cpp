@@ -1,13 +1,15 @@
 // play sound
 
 #include <iostream>
-#include <Windows.h>
+#include <windows.h>
+#include <mmsystem.h>
 
-using namespace std:
+using namespace std;
 
 int main()
 {
 	cout << "starting" << endl;
-	Payload("C:\Users\Dalyn\Music\NyanCat.wav", NULL, SND_FILENAME):
-	return 0:
+	while(true)
+		PlaySound("C:\\Users\\Sergey\\Documents\\MyFirstRootkit\\NyanCat.wav", NULL, SND_FILENAME);
+	return 0;
 }
