@@ -1,4 +1,6 @@
 # MyFirstRootkit
+Doesn't work: AppInit dll injections have been patched lol
+
 Simple kernel mode rootkit for Windows 10 - for an Operating Systems class.
 
 *Files:*
